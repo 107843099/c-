@@ -8,6 +8,8 @@
   --blue: #2563eb;
   --blue-dark: #1d4ed8;
   --green: #12845f;
+  --teal: #0f766e;
+  --amber: #b45309;
   --yellow: #f7c948;
   --red: #dc2626;
   --violet: #7c3aed;
@@ -48,7 +50,7 @@ button:disabled {
 }
 
 .app-shell {
-  width: min(1440px, 100%);
+  width: min(1500px, 100%);
   min-height: 100vh;
   margin: 0 auto;
   padding: 24px;
@@ -56,7 +58,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(340px, 0.86fr) minmax(520px, 1.14fr);
+  grid-template-columns: minmax(360px, 0.78fr) minmax(620px, 1.22fr);
   gap: 20px;
   min-height: calc(100vh - 48px);
 }
@@ -129,7 +131,7 @@ p {
 #codeInput {
   flex: 1;
   width: 100%;
-  min-height: 330px;
+  min-height: 310px;
   resize: none;
   padding: 16px;
   border: 1px solid var(--line);
@@ -348,7 +350,7 @@ code {
 .stage {
   position: relative;
   min-height: 460px;
-  padding: 22px;
+  padding: 20px;
   overflow: auto;
   background:
     linear-gradient(#edf2f7 1px, transparent 1px),
@@ -374,8 +376,8 @@ code {
 
 .memory-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 14px;
   align-content: start;
 }
 
@@ -384,8 +386,22 @@ code {
   border: 1px solid #d8e1ed;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 18px rgba(30, 41, 59, 0.08);
+  box-shadow: 0 8px 18px rgba(30, 41, 59, 0.07);
   overflow: hidden;
+}
+
+.array-block {
+  grid-column: 1 / -1;
+}
+
+.loop-symbol {
+  border-color: rgba(180, 83, 9, 0.42);
+  background: linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.iterator-symbol {
+  border-color: rgba(15, 118, 110, 0.42);
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.98), rgba(255, 255, 255, 0.94));
 }
 
 .block-title {
@@ -402,6 +418,13 @@ code {
   overflow-wrap: anywhere;
 }
 
+.pill-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
 .type-pill {
   flex: 0 0 auto;
   padding: 4px 7px;
@@ -412,21 +435,42 @@ code {
   font-weight: 900;
 }
 
+.role-pill {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.loop-pill {
+  background: #fff7ed;
+  color: var(--amber);
+}
+
+.iterator-pill {
+  background: #ccfbf1;
+  color: var(--teal);
+}
+
 .scalar-body {
-  padding: 14px;
+  padding: 12px;
 }
 
 .array-body {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
-  gap: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
   padding: 14px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .cell {
   position: relative;
   display: grid;
   place-items: center;
+  width: 100%;
   min-height: 62px;
   border: 2px solid #cbd5e1;
   border-radius: 8px;
@@ -435,6 +479,25 @@ code {
     border-color 0.2s ease,
     background 0.2s ease,
     transform 0.2s ease;
+}
+
+.array-body .cell {
+  flex: 0 0 74px;
+  min-height: 70px;
+}
+
+.scalar-body .cell {
+  min-height: 68px;
+}
+
+.cell.loop-symbol {
+  border-color: rgba(180, 83, 9, 0.5);
+  background: #fffbeb;
+}
+
+.cell.iterator-symbol {
+  border-color: rgba(15, 118, 110, 0.5);
+  background: #f0fdfa;
 }
 
 .cell-label {
@@ -567,7 +630,7 @@ code {
   }
 
   .visual-pane {
-    grid-template-rows: auto minmax(420px, 60vh) auto auto;
+    grid-template-rows: auto auto minmax(420px, 60vh) auto auto;
   }
 }
 

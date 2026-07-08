@@ -248,6 +248,8 @@ function buildFrames(source, inputText = "") {
     frames: [emptyFrame()],
     inputValues: inputText.trim() ? inputText.trim().split(/\s+/) : [],
     inputCursor: 0,
+    loopDepth: 0,
+    declarationRole: null,
     steps: 0,
   };
 
@@ -274,6 +276,7 @@ function tokenizeProgram(source) {
   let line = 1;
   let startLine = 1;
   let parenDepth = 0;
+  let initializerDepth = 0;
 
   const flushStatement = () => {
     const text = current.trim();
@@ -298,6 +301,11 @@ function tokenizeProgram(source) {
     }
 
     if (char === "{" && parenDepth === 0) {
+      if (!isBlockHeader(current.trim())) {
+        initializerDepth += 1;
+        current += char;
+        continue;
+      }
       flushStatement();
       tokens.push({ type: "open", line });
       startLine = line;
@@ -305,13 +313,18 @@ function tokenizeProgram(source) {
     }
 
     if (char === "}" && parenDepth === 0) {
+      if (initializerDepth > 0) {
+        initializerDepth -= 1;
+        current += char;
+        continue;
+      }
       flushStatement();
       tokens.push({ type: "close", line });
       startLine = line;
       continue;
     }
 
-    if (char === ";" && parenDepth === 0) {
+    if (char === ";" && parenDepth === 0 && initializerDepth === 0) {
       flushStatement();
       startLine = line;
       continue;
@@ -323,6 +336,10 @@ function tokenizeProgram(source) {
 
   flushStatement();
   return tokens;
+}
+
+function isBlockHeader(text) {
+  return /^(?:for|while|if)\s*\(/.test(text) || text === "else" || text === "";
 }
 
 function parseProgram(tokens) {
@@ -481,14 +498,14 @@ function executeNode(node, runtime) {
         event: { type: "none" },
       });
       if (!conditionValue) break;
-      executeNodes(node.body, runtime);
+      executeLoopBody(node.body, runtime);
     }
     return;
   }
 
   if (node.type === "for") {
     if (node.init) {
-      const executions = executeStatement(node.init, runtime, node.line);
+      const executions = withDeclarationRole(runtime, "iterator", () => executeStatement(node.init, runtime, node.line));
       executions.forEach((execution) => pushExecution(runtime, execution, node.init, node.line));
     }
 
@@ -502,12 +519,31 @@ function executeNode(node, runtime) {
         event: { type: "none" },
       });
       if (!conditionValue) break;
-      executeNodes(node.body, runtime);
+      executeLoopBody(node.body, runtime);
       if (node.update) {
         const executions = executeStatement(node.update, runtime, node.line);
         executions.forEach((execution) => pushExecution(runtime, execution, node.update, node.line));
       }
     }
+  }
+}
+
+function executeLoopBody(nodes, runtime) {
+  runtime.loopDepth += 1;
+  try {
+    executeNodes(nodes, runtime);
+  } finally {
+    runtime.loopDepth -= 1;
+  }
+}
+
+function withDeclarationRole(runtime, role, callback) {
+  const previousRole = runtime.declarationRole;
+  runtime.declarationRole = role;
+  try {
+    return callback();
+  } finally {
+    runtime.declarationRole = previousRole;
   }
 }
 
@@ -561,7 +597,8 @@ function executeStatement(statement, runtime, line) {
 
   const declaration = statement.match(/^(?:long\s+long|long|int)\s+([\s\S]+)$/);
   if (declaration) {
-    return executeDeclarations(declaration[1], state, line);
+    const role = runtime.declarationRole ?? (runtime.loopDepth > 0 ? "loop" : "standard");
+    return executeDeclarations(declaration[1], state, line, role);
   }
 
   const swapCall = statement.match(/^(?:std::)?swap\s*\((.+),(.+)\)$/);
@@ -639,7 +676,7 @@ function executeOutput(text, state, line) {
   };
 }
 
-function executeDeclarations(text, state, line) {
+function executeDeclarations(text, state, line, role) {
   const items = splitComma(text);
   const executions = [];
   let current = state;
@@ -649,7 +686,7 @@ function executeDeclarations(text, state, line) {
     if (!declaration) {
       throw new Error(`第 ${line} 行声明格式暂不支持：${item}`);
     }
-    const execution = executeDeclaration(declaration, current, line);
+    const execution = executeDeclaration(declaration, current, line, role);
     executions.push(execution);
     current = execution.state;
   });
@@ -657,7 +694,7 @@ function executeDeclarations(text, state, line) {
   return executions;
 }
 
-function executeDeclaration(match, state, line) {
+function executeDeclaration(match, state, line, role) {
   const [, name, sizeExpression, initializer] = match;
   const next = cloneState(state);
 
@@ -678,7 +715,7 @@ function executeDeclaration(match, state, line) {
     if (initialValues.length > size) {
       throw new Error(`第 ${line} 行初始化值数量超过数组长度：${name}`);
     }
-    upsertSymbol(next, { name, kind: "array", values });
+    upsertSymbol(next, { name, kind: "array", values, role });
     return {
       state: next,
       title: `第 ${line} 行：声明数组 ${name}`,
@@ -691,7 +728,7 @@ function executeDeclaration(match, state, line) {
   }
 
   const value = initializer ? evaluateExpression(initializer, state, line) : 0;
-  upsertSymbol(next, { name, kind: "scalar", value });
+  upsertSymbol(next, { name, kind: "scalar", value, role });
   return {
     state: next,
     title: `第 ${line} 行：声明变量 ${name} = ${value}`,
@@ -807,8 +844,8 @@ function splitComma(text) {
   let depth = 0;
   let current = "";
   for (const char of text) {
-    if (char === "(" || char === "[") depth += 1;
-    if (char === ")" || char === "]") depth -= 1;
+    if (char === "(" || char === "[" || char === "{") depth += 1;
+    if (char === ")" || char === "]" || char === "}") depth -= 1;
     if (char === "," && depth === 0) {
       parts.push(current.trim());
       current = "";
@@ -838,8 +875,8 @@ function cloneState(state) {
   return {
     symbols: state.symbols.map((symbol) =>
       symbol.kind === "array"
-        ? { name: symbol.name, kind: "array", values: [...symbol.values] }
-        : { name: symbol.name, kind: "scalar", value: symbol.value },
+        ? { name: symbol.name, kind: "array", values: [...symbol.values], role: symbol.role ?? "standard" }
+        : { name: symbol.name, kind: "scalar", value: symbol.value, role: symbol.role ?? "standard" },
     ),
     output: state.output ?? "",
   };
@@ -1160,17 +1197,23 @@ function renderFrame(frame, pendingEvent = null) {
 
 function createMemoryBlock(symbol, pendingEvent) {
   const block = document.createElement("article");
-  block.className = "memory-block";
+  block.className = `memory-block ${symbol.kind === "array" ? "array-block" : "scalar-block"} ${getSymbolRoleClass(symbol)}`;
 
   const title = document.createElement("div");
   title.className = "block-title";
-  title.innerHTML = `<strong>${escapeHtml(symbol.name)}</strong><span class="type-pill">${symbol.kind === "array" ? "int[]" : "int"}</span>`;
+  title.innerHTML = `
+    <strong>${escapeHtml(symbol.name)}</strong>
+    <span class="pill-group">
+      ${getSymbolRolePill(symbol)}
+      <span class="type-pill">${symbol.kind === "array" ? "int[]" : "int"}</span>
+    </span>
+  `;
   block.append(title);
 
   if (symbol.kind === "scalar") {
     const body = document.createElement("div");
     body.className = "scalar-body";
-    body.append(createCell(symbol.name, symbol.value, pendingEvent));
+    body.append(createCell(symbol.name, symbol.value, pendingEvent, symbol.role));
     block.append(body);
     return block;
   }
@@ -1178,15 +1221,15 @@ function createMemoryBlock(symbol, pendingEvent) {
   const body = document.createElement("div");
   body.className = "array-body";
   symbol.values.forEach((value, index) => {
-    body.append(createCell(`${symbol.name}[${index}]`, value, pendingEvent));
+    body.append(createCell(`${symbol.name}[${index}]`, value, pendingEvent, symbol.role));
   });
   block.append(body);
   return block;
 }
 
-function createCell(label, value, pendingEvent) {
+function createCell(label, value, pendingEvent, role = "standard") {
   const cell = document.createElement("div");
-  cell.className = "cell";
+  cell.className = `cell ${getSymbolRoleClass({ role })}`;
   cell.dataset.ref = label;
   if (isEventSource(label, pendingEvent)) cell.classList.add("source");
   if (isEventTarget(label, pendingEvent)) cell.classList.add("changed");
@@ -1201,6 +1244,18 @@ function createCell(label, value, pendingEvent) {
 
   cell.append(name, cellValue);
   return cell;
+}
+
+function getSymbolRoleClass(symbol) {
+  if (symbol.role === "iterator") return "iterator-symbol";
+  if (symbol.role === "loop") return "loop-symbol";
+  return "";
+}
+
+function getSymbolRolePill(symbol) {
+  if (symbol.role === "iterator") return '<span class="role-pill iterator-pill">迭代器</span>';
+  if (symbol.role === "loop") return '<span class="role-pill loop-pill">循环内</span>';
+  return "";
 }
 
 function isEventSource(label, event) {
