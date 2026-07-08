@@ -83,6 +83,7 @@ const stage = document.querySelector("#stage");
 const stepTitle = document.querySelector("#stepTitle");
 const stepCounter = document.querySelector("#stepCounter");
 const currentCode = document.querySelector("#currentCode");
+const memoryOverview = document.querySelector("#memoryOverview");
 const messageBox = document.querySelector("#messageBox");
 const timeline = document.querySelector("#timeline");
 const runButton = document.querySelector("#runButton");
@@ -1192,7 +1193,34 @@ function renderFrame(frame, pendingEvent = null) {
   stepCounter.textContent = `${currentIndex} / ${Math.max(frames.length - 1, 0)}`;
   currentCode.textContent = frame.code || "等待运行";
   outputBox.textContent = frame.state.output ?? "";
+  renderMemoryOverview(symbols);
   renderTimeline();
+}
+
+function renderMemoryOverview(symbols) {
+  const counts = symbols.reduce(
+    (total, symbol) => {
+      if (symbol.kind === "array") total.arrays += 1;
+      if (symbol.kind === "scalar") total.scalars += 1;
+      if (symbol.role === "iterator") total.iterators += 1;
+      if (symbol.role === "loop") total.loopLocals += 1;
+      return total;
+    },
+    { scalars: 0, arrays: 0, iterators: 0, loopLocals: 0 },
+  );
+
+  memoryOverview.innerHTML = "";
+  [
+    ["变量", counts.scalars, "overview-chip scalar-chip"],
+    ["数组", counts.arrays, "overview-chip array-chip"],
+    ["迭代器", counts.iterators, "overview-chip iterator-chip"],
+    ["循环内", counts.loopLocals, "overview-chip loop-chip"],
+  ].forEach(([label, value, className]) => {
+    const chip = document.createElement("span");
+    chip.className = className;
+    chip.innerHTML = `<strong>${value}</strong>${label}`;
+    memoryOverview.append(chip);
+  });
 }
 
 function createMemoryBlock(symbol, pendingEvent) {
