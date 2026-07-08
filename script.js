@@ -83,6 +83,7 @@ const stage = document.querySelector("#stage");
 const stepTitle = document.querySelector("#stepTitle");
 const stepCounter = document.querySelector("#stepCounter");
 const currentCode = document.querySelector("#currentCode");
+const flowInsight = document.querySelector("#flowInsight");
 const memoryOverview = document.querySelector("#memoryOverview");
 const messageBox = document.querySelector("#messageBox");
 const timeline = document.querySelector("#timeline");
@@ -478,13 +479,20 @@ function executeNode(node, runtime) {
 
   if (node.type === "if") {
     const conditionValue = evaluateExpression(node.condition, runtime.state, node.line);
+    const passed = Boolean(conditionValue);
     pushFrame(runtime, {
-      title: `第 ${node.line} 行：if(${node.condition}) 为 ${conditionValue ? "true" : "false"}`,
+      title: `第 ${node.line} 行：if(${node.condition}) ${passed ? "成立" : "不成立"}`,
       line: node.line,
       code: node.text,
-      event: { type: "none" },
+      event: {
+        type: "branch",
+        keyword: "if",
+        expression: node.condition,
+        passed,
+        destination: passed ? "then" : node.elseBody.length > 0 ? "else" : "skip",
+      },
     });
-    executeNodes(conditionValue ? node.thenBody : node.elseBody, runtime);
+    executeNodes(passed ? node.thenBody : node.elseBody, runtime);
     return;
   }
 
@@ -492,13 +500,19 @@ function executeNode(node, runtime) {
     while (true) {
       guardStep(runtime, node.line);
       const conditionValue = evaluateExpression(node.condition, runtime.state, node.line);
+      const passed = Boolean(conditionValue);
       pushFrame(runtime, {
-        title: `第 ${node.line} 行：while(${node.condition}) 为 ${conditionValue ? "true" : "false"}`,
+        title: `第 ${node.line} 行：while(${node.condition}) ${passed ? "继续" : "结束"}`,
         line: node.line,
         code: node.text,
-        event: { type: "none" },
+        event: {
+          type: "loop",
+          keyword: "while",
+          expression: node.condition,
+          passed,
+        },
       });
-      if (!conditionValue) break;
+      if (!passed) break;
       executeLoopBody(node.body, runtime);
     }
     return;
@@ -513,13 +527,19 @@ function executeNode(node, runtime) {
     while (true) {
       guardStep(runtime, node.line);
       const conditionValue = node.condition ? evaluateExpression(node.condition, runtime.state, node.line) : 1;
+      const passed = Boolean(conditionValue);
       pushFrame(runtime, {
-        title: `第 ${node.line} 行：for 条件 ${node.condition || "true"} 为 ${conditionValue ? "true" : "false"}`,
+        title: `第 ${node.line} 行：for 条件 ${node.condition || "true"} ${passed ? "继续" : "结束"}`,
         line: node.line,
         code: node.text,
-        event: { type: "none" },
+        event: {
+          type: "loop",
+          keyword: "for",
+          expression: node.condition || "true",
+          passed,
+        },
       });
-      if (!conditionValue) break;
+      if (!passed) break;
       executeLoopBody(node.body, runtime);
       if (node.update) {
         const executions = executeStatement(node.update, runtime, node.line);
@@ -1193,8 +1213,55 @@ function renderFrame(frame, pendingEvent = null) {
   stepCounter.textContent = `${currentIndex} / ${Math.max(frames.length - 1, 0)}`;
   currentCode.textContent = frame.code || "等待运行";
   outputBox.textContent = frame.state.output ?? "";
+  renderFlowInsight(frame);
   renderMemoryOverview(symbols);
   renderTimeline();
+}
+
+function renderFlowInsight(frame) {
+  const insight = getFlowInsight(frame);
+  flowInsight.className = `flow-insight ${insight.tone}`;
+  flowInsight.innerHTML = `
+    <span class="flow-icon">${insight.icon}</span>
+    <span class="flow-copy">
+      <strong>${escapeHtml(insight.title)}</strong>
+      <small>${escapeHtml(insight.detail)}</small>
+    </span>
+    <span class="flow-result">${escapeHtml(insight.result)}</span>
+  `;
+}
+
+function getFlowInsight(frame) {
+  const event = frame.event ?? { type: "none" };
+  if (event.type === "branch") {
+    const result = event.passed ? "成立" : "不成立";
+    const action = event.destination === "then" ? "进入 if 代码块" : event.destination === "else" ? "进入 else 代码块" : "跳过 if 代码块";
+    return {
+      icon: "◇",
+      tone: event.passed ? "flow-true" : "flow-false",
+      title: `${event.keyword} 判断 ${result}`,
+      detail: `${event.expression} -> ${action}`,
+      result,
+    };
+  }
+
+  if (event.type === "loop") {
+    return {
+      icon: "↻",
+      tone: event.passed ? "flow-loop-on" : "flow-loop-off",
+      title: `${event.keyword} 循环 ${event.passed ? "继续" : "结束"}`,
+      detail: `${event.expression} -> ${event.passed ? "执行循环体" : "退出循环"}`,
+      result: event.passed ? "继续" : "退出",
+    };
+  }
+
+  return {
+    icon: "→",
+    tone: "flow-neutral",
+    title: "顺序执行",
+    detail: frame.code || "等待生成执行步骤",
+    result: "STEP",
+  };
 }
 
 function renderMemoryOverview(symbols) {
@@ -1408,9 +1475,16 @@ function renderTimeline() {
     button.dataset.step = String(index);
     button.textContent = String(index);
     button.title = frame.title;
+    button.classList.add(getTimelineEventClass(frame.event));
     if (index === currentIndex) button.classList.add("active");
     timeline.append(button);
   });
+}
+
+function getTimelineEventClass(event) {
+  if (event?.type === "branch") return event.passed ? "branch-true-step" : "branch-false-step";
+  if (event?.type === "loop") return event.passed ? "loop-continue-step" : "loop-exit-step";
+  return "plain-step";
 }
 
 function getTimelineIndexes(total, current) {
