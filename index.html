@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>C++ 变量与数组动画模拟器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <div class="editor-pane">
+          <div class="pane-header">
+            <div>
+              <h1>C++ 变量与数组动画模拟器</h1>
+              <p>写入一小段 C++ 代码，逐步观察变量、数组、输入输出和循环中的值变化。</p>
+            </div>
+            <button class="ghost-button" id="loadExample" type="button">示例</button>
+          </div>
+
+          <label class="code-label" for="codeInput">代码</label>
+          <textarea id="codeInput" spellcheck="false"></textarea>
+
+          <div class="io-grid">
+            <label class="io-panel" for="inputData">
+              <span>输入数据</span>
+              <textarea id="inputData" spellcheck="false"></textarea>
+            </label>
+            <div class="io-panel">
+              <span>程序输出</span>
+              <pre id="outputBox"></pre>
+            </div>
+          </div>
+
+          <div class="control-grid">
+            <button class="primary-button" id="runButton" type="button">运行</button>
+            <button class="icon-button" id="backButton" type="button" title="上一步" aria-label="上一步">‹</button>
+            <button class="icon-button" id="playButton" type="button" title="播放" aria-label="播放">▶</button>
+            <button class="icon-button" id="nextButton" type="button" title="下一步" aria-label="下一步">›</button>
+            <button class="ghost-button" id="resetButton" type="button">重置</button>
+            <label class="speed-control" for="speedInput">
+              <span>速度</span>
+              <input id="speedInput" type="range" min="350" max="1400" value="850" />
+            </label>
+          </div>
+
+          <div class="hint-strip">
+            支持：<code>cin &gt;&gt; a &gt;&gt; b;</code>、<code>cout &lt;&lt; t;</code>、<code>for(...)</code>、<code>while(...)</code>、<code>if/else</code>、<code>++</code>、<code>+=</code>、多变量声明、数组和 <code>swap(...)</code>
+          </div>
+        </div>
+
+        <div class="visual-pane">
+          <div class="status-bar">
+            <div>
+              <span class="status-kicker">当前步骤</span>
+              <strong id="stepTitle">等待运行</strong>
+            </div>
+            <span id="stepCounter">0 / 0</span>
+          </div>
+
+          <div class="stage" id="stage">
+            <div class="empty-state">
+              <strong>点击“运行”开始</strong>
+              <span>内存格会在这里出现，赋值与交换会用移动动画显示。</span>
+            </div>
+          </div>
+
+          <div class="timeline" id="timeline"></div>
+          <pre class="message-box" id="messageBox" aria-live="polite"></pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
