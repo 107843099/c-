@@ -84,6 +84,30 @@ button:disabled {
   margin-bottom: 18px;
 }
 
+.example-tools {
+  display: grid;
+  grid-template-columns: minmax(116px, 1fr) 68px;
+  gap: 8px;
+  min-width: 220px;
+}
+
+#exampleSelect {
+  height: 42px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #1f2937;
+  font-weight: 800;
+  outline: none;
+}
+
+#exampleSelect:focus {
+  border-color: rgba(37, 99, 235, 0.86);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.13);
+}
+
 h1 {
   margin: 0;
   font-size: clamp(1.45rem, 2.2vw, 2.2rem);
@@ -258,7 +282,7 @@ code {
 .visual-pane {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(460px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(420px, 1fr) auto auto;
   overflow: hidden;
 }
 
@@ -297,6 +321,28 @@ code {
   background: #e8f0ff;
   color: #1d4ed8;
   font-weight: 800;
+}
+
+.active-code {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+
+#currentCode {
+  min-height: 38px;
+  max-height: 86px;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #101827;
+  color: #e5edf7;
+  white-space: pre-wrap;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .stage {
@@ -530,6 +576,11 @@ code {
   .status-bar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .example-tools {
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 
   .control-grid {

@@ -1,4 +1,9 @@
-const exampleCode = `#include <iostream>
+const examples = [
+  {
+    id: "digit-count",
+    name: "数字统计",
+    input: "220 230",
+    code: `#include <iostream>
 using namespace std;
 int main()
 {
@@ -24,7 +29,52 @@ int main()
     }
     cout << t;
     return 0;
-}`;
+}`,
+  },
+  {
+    id: "bubble-sort",
+    name: "数组排序",
+    input: "",
+    code: `#include <iostream>
+using namespace std;
+int main()
+{
+    int a[5] = {5, 1, 4, 2, 3};
+    for (int i = 0; i < 5; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            if (a[j] > a[j + 1])
+            {
+                swap(a[j], a[j + 1]);
+            }
+        }
+    }
+    cout << a[0] << " " << a[1] << " " << a[2] << " " << a[3] << " " << a[4];
+    return 0;
+}`,
+  },
+  {
+    id: "prefix-sum",
+    name: "前缀和",
+    input: "3 1 4 1 5",
+    code: `#include <iostream>
+using namespace std;
+int main()
+{
+    int a[5];
+    int s[5];
+    cin >> a[0] >> a[1] >> a[2] >> a[3] >> a[4];
+    s[0] = a[0];
+    for (int i = 1; i < 5; i++)
+    {
+        s[i] = s[i - 1] + a[i];
+    }
+    cout << s[4];
+    return 0;
+}`,
+  },
+];
 
 const codeInput = document.querySelector("#codeInput");
 const inputData = document.querySelector("#inputData");
@@ -32,6 +82,7 @@ const outputBox = document.querySelector("#outputBox");
 const stage = document.querySelector("#stage");
 const stepTitle = document.querySelector("#stepTitle");
 const stepCounter = document.querySelector("#stepCounter");
+const currentCode = document.querySelector("#currentCode");
 const messageBox = document.querySelector("#messageBox");
 const timeline = document.querySelector("#timeline");
 const runButton = document.querySelector("#runButton");
@@ -40,6 +91,7 @@ const nextButton = document.querySelector("#nextButton");
 const playButton = document.querySelector("#playButton");
 const resetButton = document.querySelector("#resetButton");
 const loadExample = document.querySelector("#loadExample");
+const exampleSelect = document.querySelector("#exampleSelect");
 const speedInput = document.querySelector("#speedInput");
 const MAX_EXECUTION_STEPS = 50000;
 const MAX_RENDERED_FRAMES = 15000;
@@ -50,8 +102,8 @@ let playing = false;
 let playTimer = null;
 let animating = false;
 
-codeInput.value = exampleCode;
-inputData.value = "220 230";
+populateExamples();
+loadSelectedExample(false);
 renderFrame(frames[0]);
 setControls();
 
@@ -60,9 +112,11 @@ runButton.addEventListener("click", () => {
 });
 
 loadExample.addEventListener("click", () => {
-  codeInput.value = exampleCode;
-  inputData.value = "220 230";
-  compileAndRun();
+  loadSelectedExample(true);
+});
+
+exampleSelect.addEventListener("change", () => {
+  loadSelectedExample(false);
 });
 
 resetButton.addEventListener("click", () => {
@@ -116,6 +170,31 @@ function compileAndRun() {
     renderFrame(frames[0]);
     messageBox.textContent = error.message;
   }
+  setControls();
+}
+
+function populateExamples() {
+  examples.forEach((example) => {
+    const option = document.createElement("option");
+    option.value = example.id;
+    option.textContent = example.name;
+    exampleSelect.append(option);
+  });
+}
+
+function loadSelectedExample(shouldRun) {
+  const example = examples.find((item) => item.id === exampleSelect.value) ?? examples[0];
+  codeInput.value = example.code;
+  inputData.value = example.input;
+  if (shouldRun) {
+    compileAndRun();
+    return;
+  }
+  pause();
+  frames = [emptyFrame()];
+  currentIndex = 0;
+  messageBox.textContent = "";
+  renderFrame(frames[0]);
   setControls();
 }
 
@@ -1074,6 +1153,7 @@ function renderFrame(frame, pendingEvent = null) {
 
   stepTitle.textContent = frame.title;
   stepCounter.textContent = `${currentIndex} / ${Math.max(frames.length - 1, 0)}`;
+  currentCode.textContent = frame.code || "等待运行";
   outputBox.textContent = frame.state.output ?? "";
   renderTimeline();
 }
